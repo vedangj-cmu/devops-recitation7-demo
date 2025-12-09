@@ -25,14 +25,17 @@ jobs:
       run:
         working-directory: ./infra
     steps:
+      # Check out the source code
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # Install the Terraform CLI
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
 
+      # Initialize Terraform and configure the backend
       - name: Terraform Init
         run: |
           terraform init \
@@ -41,9 +44,11 @@ jobs:
             -backend-config="container_name=$CONTAINER_NAME" \
             -backend-config="key=prod.terraform.tfstate"
 
+      # Generate a speculative execution plan and save it
       - name: Terraform Plan
         run: terraform plan -out=tfplan
 
+      # Upload the plan file to share with the deploy job
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -59,20 +64,24 @@ jobs:
       run:
         working-directory: ./infra
     steps:
+      # Check out the source code again
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # Install the Terraform CLI again
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
 
+      # Download the plan artifact from the previous job
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
         with:
           name: tfplan
           path: infra
 
+      # Initialize Terraform again
       - name: Terraform Init
         run: |
           terraform init \
@@ -81,15 +90,18 @@ jobs:
             -backend-config="container_name=$CONTAINER_NAME" \
             -backend-config="key=prod.terraform.tfstate"
 
+      # Apply the previously generated plan
       - name: Terraform Apply
         run: terraform apply tfplan
 
+      # Retrieve necessary outputs from Terraform
       - name: Get Output
         id: output
         run: |
           echo "url=$(terraform output -raw web_endpoint_url)" >> $GITHUB_OUTPUT
           echo "sa_name=$(terraform output -raw storage_account_name)" >> $GITHUB_OUTPUT
 
+      # Upload the application files to the Azure Storage container
       - name: Upload Index.html
         run: |
           az storage blob upload-batch \
@@ -98,5 +110,6 @@ jobs:
             --destination '$web' \
             --overwrite
 
+      # Display the deployed website URL
       - name: Show URL
         run: echo "Deployment Complete! Visit ${{ steps.output.outputs.url }}"
