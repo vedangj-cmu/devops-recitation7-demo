@@ -54,7 +54,7 @@ jobs:
     name: Terraform Apply & Deploy
     needs: plan
     runs-on: self-hosted
-    environment: production # This triggers Manual Approval if configured in GitHub
+    environment: production
     defaults:
       run:
         working-directory: ./infra
